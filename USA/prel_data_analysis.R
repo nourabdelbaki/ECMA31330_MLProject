@@ -16,13 +16,15 @@ library(stringr)
 library(lfe)  # For fixed-effects regression
 
 
-#### USING DATA "1990_G7_US"
+#### 
 setwd('C:/Users/HP/Downloads/UChicago/1. Courses/2. Winter Quarter 2025/2.3 MACSS 31330 Econometrics and Machine Learning/ECMA31330_MLProject/USA')
 
-# Data cleaning
+# USING DATA "1990_G7_US"
 
 data <- fread("1990_G7_US.csv", na.strings = "NA")
 
+
+###################################################
 # Running OLS where y = monetary policy USA
 
 possible_regressors <- data %>% select(-US)
