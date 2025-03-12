@@ -47,7 +47,8 @@ transposed_inf_df <- transposed_inf_df %>%
 
 # Dropping the subcomponents that's all NA (inf_43 and inf_73)
 transposed_inf_df <- transposed_inf_df %>%
-  select_if(~!all(is.na(.))) 
+  select_if(~!all(is.na(.))) %>%
+  mutate(across(where(is.numeric), ~ .x / 100)) #turning into decimal format
 
 # inf_43 is Net expenditures abroad by U.S. residents (131)
 # inf_47 is Net foreign travel
@@ -57,9 +58,10 @@ transposed_inf_df <- transposed_inf_df %>%
 un_rate <- fread("UNRATE.csv", na.strings = "---")
 setnames(un_rate, old = "observation_date", new = "date")
 un_rate$date <- as.yearmon(un_rate$date, "%b %Y")
+un_rate$UNRATE <- un_rate$UNRATE/100 #turning into decimal format
 
 ##############################################################################
-#  Real GDP Growth, from preceding period
+#  Real GDP Growth, from preceding period and log Real GDP 
 ##############################################################################
 rgdp <- fread("RGDP_Growth.csv")
 setnames(rgdp, old = "observation_date", new = "date")
@@ -74,40 +76,18 @@ gdp_dollars$date <- gdp_dollars$date %>% as.Date(., format = "%Y/%m/%d") %>%
 setnames(gdp_dollars, old = "GDPC1", new = "rgdp")
 
 rgdp <- left_join(rgdp, gdp_dollars, by = "date")
+
+rgdp$rgdp_growth <- rgdp$rgdp_growth/100 #turning into decimal format
+rgdp$rgdp <- log(rgdp$rgdp) #taking log of RGDP 
+
 ##############################################################################
 #  Inflation expectation
 ##############################################################################
 inf_exp <- fread("EXPINF1YR.csv", na.strings = "---")
 setnames(inf_exp, old = "observation_date", new = "date")
 inf_exp$date <- as.yearmon(inf_exp$date, "%b %Y")
+inf_exp$EXPINF1YR <- inf_exp$EXPINF1YR/100
 
-##############################################################################
-#  G20 monetary policy rates
-##############################################################################
-# Read the CSV file
-irate <- fread("G20_monetary_pol.csv", na.strings = "---")
-
-# Transpose the data table
-irate <- t(irate)
-irate <- as.data.table(irate)
-
-# Remove the first 3 columns (descriptions provided from the page)
-irate <- irate[, -c(1,2,3)]
-
-# Set the column names using the original column names (country codes)
-colnames(irate) <- as.character(unlist(irate[1, ]))
-
-colnames(irate)[colnames(irate) == "REF_AREA"] <- "date" 
-
-#Remove the first row
-irate <- irate[-1, ]
-
-#Put the date format instead of list
-irate[[1]] <- as.Date(unlist(irate[[1]]), format = "%d/%m/%Y")
-
-#Mutate data so it is a number
-irate <- irate %>%
-  mutate(across(-1, ~ as.numeric(as.character(.))))
 ##############################################################################
 # G7 Monetary Policy Rates 
 ##############################################################################
@@ -167,6 +147,9 @@ jp_supp <- jp_supp %>%
 
 irate7$JP <- coalesce(irate7$JP, jp_supp$JP_supp[match(irate7$date,
                                                        jp_supp$date)])
+
+irate7 <- irate7 %>% 
+  mutate(across(where(is.numeric), ~ .x / 100))
 
 ##############################################################################
 #  WTI oil price
