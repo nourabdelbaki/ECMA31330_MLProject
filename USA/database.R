@@ -10,7 +10,7 @@ library(zoo)
 
 #Import datasets
 #setwd("C:/Users/HP/Downloads/UChicago/1. Courses/2. Winter Quarter 2025/2.3 MACSS 31330 Econometrics and Machine Learning/Final project/database/USA")
-setwd("/Users/nourabdelbaki/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ML project/USA")
+setwd("~/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ECMA31330_MLProject/USA")
 ############################################################################
 #  Inflation_components
 ###########################################################################
@@ -194,62 +194,45 @@ setnames(vix, old = "observation_date", new = "date")
 vix$date <- as.yearmon(vix$date, "%b %Y")
 
 ##############################################################################
-##### Merged Data1
+#### Merged Data: G7 Monthly, 1990
 ##############################################################################
-
-datasets <- list(un_rate, inf_exp, gdp, irate, wti, gscpi, vix,
+datasets <- list(un_rate, inf_exp, rgdp, irate7, wti, vix,
                  transposed_inf_df)
-sapply(datasets, function(df) class(df$date))
-datasets <- lapply(datasets, function(df) {
-  df$date <- as.Date(df$date)  # Convert to Date format
-  return(df)
-})
 
-# Merge all datasets by "date"
 merged_data <- reduce(datasets, left_join, by = "date")
-
-
-# Create lag variables for each inflation subcomponent and other variables
-data_long <- merged_data %>%
-  mutate(
-    # Creating lags for inflation_rate and other relevant variables
-    across(starts_with("inf_"), ~lag(.x, 1), .names = "lag1_{.col}"),
-    across(starts_with("inf_"), ~lag(.x, 2), .names = "lag2_{.col}"),
-    across(starts_with("monetary_policy"), ~lag(.x, 1), .names = "lag1_{.col}"),
-    across(starts_with("GDP"), ~lag(.x, 1), .names = "lag1_{.col}"),
-    across(starts_with("EXPINF1YR"), ~lag(.x, 1), .names = "lag1_{.col}")
-  )
-
-#Save data into csv
-write.csv(data_long, "merged_data.csv", row.names = FALSE)
-
-##############################################################################
-#### Merged Data-2: G7 Monthly, 1990
-##############################################################################
-datasets2 <- list(un_rate, inf_exp, rgdp, irate7, wti, vix,
-                 transposed_inf_df)
-
-merged_data2 <- reduce(datasets2, left_join, by = "date")
 
 # Interpolate GDP & GDP Growth from Quarterly to Monthly
 # using simple linear interpolation
 # Ref:https://www.rdocumentation.org/packages/zoo/versions/1.8-12/topics/na.approx
-merged_data2$rgdp <- na.approx(merged_data2$rgdp, rule = 2)
-merged_data2$rgdp_growth <- na.approx(merged_data2$rgdp_growth, rule = 2)
+merged_data$rgdp <- na.approx(merged_data2$rgdp, rule = 2)
+merged_data$rgdp_growth <- na.approx(merged_data2$rgdp_growth, rule = 2)
+
+# Lagging the inflation, rgdp, rgdp_growth, and inflation components variables
+# as well as GB because they typically make their monetary policy decision 
+# after the US does. So, US only observes the past interest rate decision of GB.
+to_lag_vars <- colnames(merged_data)
+to_lag_vars <- to_lag_vars[-c(1,2,3,6,7,8,10,11,12,13,14)]
+
+# Create a lagged dataset
+merged_data <- merged_data %>%
+  mutate(across(all_of(to_lag_vars), ~lag(.x, 1), 
+                .names = "lag_{.col}")) %>%  # Lag selected variables
+  select(-c("GB")) %>%
+  na.omit()
 
 # Subset for all the observations of Jan 1990 and after
-merged_data2 <- merged_data2[merged_data2$date >= as.yearmon("Jan 1990", "%b %Y"), ]
+merged_data <- merged_data[merged_data$date >= as.yearmon("Jan 1990", "%b %Y"), ]
 
 # Drop Jan 2025 observation bc no inflation data yet
-merged_data2 <- merged_data2[1:(nrow(merged_data2)-1),]
+merged_data <- merged_data[1:(nrow(merged_data)-1),]
 
 write.csv(merged_data2, "1990_G7_US.csv", row.names = FALSE)
 ##############################################################################
-#### Merged Data-3 G7 Monthly, 1998 (+Global Supply Chain Presence)
+#### Merged Data-2 G7 Monthly, 1998 (+Global Supply Chain Presence)
 ##############################################################################
-merged_data3 <- left_join(merged_data2, gscpi, by="date")
+merged_data2 <- left_join(merged_data, gscpi, by="date")
 
-# Subset for all the observations of Jan 1990 and after
-merged_data3 <- merged_data3[merged_data3$date >= as.yearmon("Jan 1998", "%b %Y"), ]
+# Subset for all the observations of Jan 1998 and after
+merged_data2 <- merged_data2[merged_data2$date >= as.yearmon("Jan 1998", "%b %Y"), ]
 
-write.csv(merged_data3, "1998_G7_US.csv", row.names = FALSE)
+write.csv(merged_data2, "1998_G7_US.csv", row.names = FALSE)
