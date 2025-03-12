@@ -17,11 +17,11 @@ library(lfe)  # For fixed-effects regression
 
 
 #### 
-setwd('C:/Users/HP/Downloads/UChicago/1. Courses/2. Winter Quarter 2025/2.3 MACSS 31330 Econometrics and Machine Learning/ECMA31330_MLProject/USA')
+#setwd('C:/Users/HP/Downloads/UChicago/1. Courses/2. Winter Quarter 2025/2.3 MACSS 31330 Econometrics and Machine Learning/ECMA31330_MLProject/USA')
+setwd("~/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ECMA31330_MLProject/USA")
 
-# USING DATA "1990_G7_US"
-
-data <- fread("1990_G7_US.csv", na.strings = "NA")
+# USING DATA "1998_G7_US"
+data <- read.csv("1998_G7_US.csv")
 
 
 ###################################################
