@@ -10,7 +10,7 @@ library(zoo)
 
 #Import datasets
 #setwd("C:/Users/HP/Downloads/UChicago/1. Courses/2. Winter Quarter 2025/2.3 MACSS 31330 Econometrics and Machine Learning/Final project/database/USA")
-setwd("~/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ECMA31330_MLProject/USA")
+setwd("~/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ECMA31330_MLProject/USA/RawData")
 ############################################################################
 #  Inflation_components
 ###########################################################################
