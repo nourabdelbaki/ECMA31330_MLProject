@@ -22,8 +22,6 @@ setwd("~/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ECMA31330_MLProject/USA")
 
 # USING DATA "1998_G7_US"
 data <- read.csv("1998_G7_US.csv")
-
-
 ###################################################
 # Running OLS where y = monetary policy USA
 
@@ -280,7 +278,7 @@ barplot(top_50$Importance, names.arg = top_50$Feature,
 mat_data <- as.data.frame(mat_data)
 
 # Variables to lag. Countries that take monetary policy before the US
-lagged_vars <- c("GB", "DE")  
+lagged_vars <- c("GB", "DE")
 
 # Create a lagged dataset
 mat_data_lagged <- mat_data %>%
