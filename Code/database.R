@@ -206,7 +206,9 @@ merged_data <- merged_data %>%
 # Subset for all the observations of Jan 1990 and after
 merged_data <- merged_data[merged_data$date >= as.yearmon("Jan 1990", "%b %Y"), ]
 
-write.csv(merged_data, "1990_G7_US.csv", row.names = FALSE)
+write.csv(merged_data,
+          "~/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ECMA31330_MLProject/1990_G7_US.csv",
+          row.names = FALSE)
 ##############################################################################
 #### Merged Data-2 G7 Monthly, 1998 (+Global Supply Chain Presence)
 ##############################################################################
@@ -215,4 +217,6 @@ merged_data2 <- left_join(merged_data, gscpi, by="date")
 # Subset for all the observations of Jan 1998 and after
 merged_data2 <- merged_data2[merged_data2$date >= as.yearmon("Jan 1998", "%b %Y"), ]
 
-write.csv(merged_data2, "1998_G7_US.csv", row.names = FALSE)
+write.csv(merged_data2, 
+          "~/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ECMA31330_MLProject/1998_G7_US.csv",
+          row.names = FALSE)
