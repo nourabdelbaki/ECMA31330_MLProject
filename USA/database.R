@@ -204,8 +204,8 @@ merged_data <- reduce(datasets, left_join, by = "date")
 # Interpolate GDP & GDP Growth from Quarterly to Monthly
 # using simple linear interpolation
 # Ref:https://www.rdocumentation.org/packages/zoo/versions/1.8-12/topics/na.approx
-merged_data$rgdp <- na.approx(merged_data2$rgdp, rule = 2)
-merged_data$rgdp_growth <- na.approx(merged_data2$rgdp_growth, rule = 2)
+merged_data$rgdp <- na.approx(merged_data$rgdp, rule = 2)
+merged_data$rgdp_growth <- na.approx(merged_data$rgdp_growth, rule = 2)
 
 # Lagging the inflation, rgdp, rgdp_growth, and inflation components variables
 # as well as GB because they typically make their monetary policy decision 
@@ -218,15 +218,12 @@ merged_data <- merged_data %>%
   mutate(across(all_of(to_lag_vars), ~lag(.x, 1), 
                 .names = "lag_{.col}")) %>%  # Lag selected variables
   select(-c("GB")) %>%
-  na.omit()
+  na.omit() #predominantly Jan 2025 information
 
 # Subset for all the observations of Jan 1990 and after
 merged_data <- merged_data[merged_data$date >= as.yearmon("Jan 1990", "%b %Y"), ]
 
-# Drop Jan 2025 observation bc no inflation data yet
-merged_data <- merged_data[1:(nrow(merged_data)-1),]
-
-write.csv(merged_data2, "1990_G7_US.csv", row.names = FALSE)
+write.csv(merged_data, "1990_G7_US.csv", row.names = FALSE)
 ##############################################################################
 #### Merged Data-2 G7 Monthly, 1998 (+Global Supply Chain Presence)
 ##############################################################################
