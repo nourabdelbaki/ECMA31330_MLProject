@@ -38,17 +38,14 @@ transposed_inf_df <- cbind(date, transposed_inf_df)
 new_colnames <- paste0("inf_", seq_len(ncol(transposed_inf_df) - 1))
 setnames(transposed_inf_df, old = names(transposed_inf_df)[-1], new = new_colnames)
 
-#Format date 
-#transposed_inf_df$date <- as.Date(transposed_inf_df$date, format = "%Y-%m-%d")
-
 #Format numbers
 transposed_inf_df <- transposed_inf_df %>%
   mutate(across(-1, ~ as.numeric(as.character(.))))
 
 # Dropping the subcomponents that's all NA (inf_43 and inf_73)
 transposed_inf_df <- transposed_inf_df %>%
-  select_if(~!all(is.na(.))) %>%
-  mutate(across(where(is.numeric), ~ .x / 100)) #turning into decimal format
+  select_if(~!all(is.na(.))) #%>%
+  #mutate(across(where(is.numeric), ~ .x / 100)) #turning into decimal format
 
 # inf_43 is Net expenditures abroad by U.S. residents (131)
 # inf_47 is Net foreign travel
@@ -58,7 +55,7 @@ transposed_inf_df <- transposed_inf_df %>%
 un_rate <- fread("UNRATE.csv", na.strings = "---")
 setnames(un_rate, old = "observation_date", new = "date")
 un_rate$date <- as.yearmon(un_rate$date, "%b %Y")
-un_rate$UNRATE <- un_rate$UNRATE/100 #turning into decimal format
+#un_rate$UNRATE <- un_rate$UNRATE/100 #turning into decimal format
 
 ##############################################################################
 #  Real GDP Growth, from preceding period and log Real GDP 
@@ -77,7 +74,7 @@ setnames(gdp_dollars, old = "GDPC1", new = "rgdp")
 
 rgdp <- left_join(rgdp, gdp_dollars, by = "date")
 
-rgdp$rgdp_growth <- rgdp$rgdp_growth/100 #turning into decimal format
+#rgdp$rgdp_growth <- rgdp$rgdp_growth/100 #turning into decimal format
 rgdp$rgdp <- log(rgdp$rgdp) #taking log of RGDP 
 
 ##############################################################################
@@ -86,7 +83,7 @@ rgdp$rgdp <- log(rgdp$rgdp) #taking log of RGDP
 inf_exp <- fread("EXPINF1YR.csv", na.strings = "---")
 setnames(inf_exp, old = "observation_date", new = "date")
 inf_exp$date <- as.yearmon(inf_exp$date, "%b %Y")
-inf_exp$EXPINF1YR <- inf_exp$EXPINF1YR/100
+#inf_exp$EXPINF1YR <- inf_exp$EXPINF1YR/100
 
 ##############################################################################
 # G7 Monetary Policy Rates 
@@ -101,7 +98,7 @@ irate7 <- irate7 %>%
 # Set the column names using the original column names (country codes)
 colnames(irate7) <- as.character(unlist(irate7[1, ]))
 
-colnames(irate7)[colnames(irate7) == "REF_AREA"] <- "date" 
+colnames(irate7)[colnames(irate7) == "REF_AREA"] <- "date"
 
 #Remove the first row
 irate7 <- irate7[-1, ]
@@ -148,8 +145,8 @@ jp_supp <- jp_supp %>%
 irate7$JP <- coalesce(irate7$JP, jp_supp$JP_supp[match(irate7$date,
                                                        jp_supp$date)])
 
-irate7 <- irate7 %>% 
-  mutate(across(where(is.numeric), ~ .x / 100))
+#irate7 <- irate7 %>% 
+#  mutate(across(where(is.numeric), ~ .x / 100))
 
 ##############################################################################
 #  WTI oil price
@@ -201,7 +198,7 @@ merged_data <- merged_data %>%
   mutate(across(all_of(to_lag_vars), ~lag(.x, 1), 
                 .names = "lag_{.col}")) %>%  # Lag selected variables
   select(-c("GB")) %>%
-  na.omit() #predominantly Jan 2025 information
+  na.omit() # basically only Jan 2025 information 
 
 # Subset for all the observations of Jan 1990 and after
 merged_data <- merged_data[merged_data$date >= as.yearmon("Jan 1990", "%b %Y"), ]
