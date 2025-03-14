@@ -1,23 +1,14 @@
 #     Nour Abdelbaki & Giuliana Triberti
 ## In this code, we are cross-validating our random forests for each time period.
+# Then, running the model and saving the model object to use for our analysis. 
 
 # Import Libraries
-library(data.table)
 library(dplyr)
 library(tidyr)
-library(lubridate)
-library(readxl)
-library(purrr)
+library(zoo)
 library(randomForest)
-library(ggplot2)
-library(corrplot)
-library(reshape2)
-library(factoextra)
-library(FactoMineR)
-library(stringr)
-library(lfe)  # For fixed-effects regression
-library(DALEX) # SHAP 
-library(pdp) # Partial Dependence Plot
+
+# Set seed for reproducibility
 set.seed(123)
 
 ## Set working directory
@@ -54,8 +45,9 @@ for(i in seq_len(nrow(hyper_grid))) {
                       replace = hyper_grid$replace[i],
                       sampsize = hyper_grid$sampsize[i]
   )
-  # save rmse
-  hyper_grid$rmse[i] <- sqrt(fit$mse)
+  # save rmse as the sqrt of the last MSE in the vector as it is the MSE 
+  # of the entire ensemble/after growing all trees
+  hyper_grid$rmse[i] <- sqrt(tail(fit$mse, 1)) 
 }
 
 hyper_grid_all <- hyper_grid %>%
@@ -63,11 +55,21 @@ hyper_grid_all <- hyper_grid %>%
 
 head(hyper_grid_all, 10)
 #     mtry nodesize replace sampsize      rmse
-#1    80       15   FALSE      259    0.3479939
-#2    66       15    TRUE      259    0.4057546
-#3    30        3    TRUE      162    0.4061437
-#4    30        3   FALSE      259    0.4272611
+#1    50        3   FALSE      259    0.2039051
+#2    66        3   FALSE      259    0.2063256
+#3    50        5   FALSE      259    0.2065509
+#4    30        3   FALSE      259    0.2082388
+#5    80        3   FALSE      259    0.2095830
 
+rf_model <- randomForest(US ~ ., data = data, importance = TRUE,
+                         ntree = p*10,
+                         mtry = 50,
+                         nodesize = 3,
+                         replace = FALSE,
+                         sampsize = 259,
+                         keep.forest = TRUE)
+
+saveRDS(rf_model, file = "Models/RF_model_ALL.rds")
 ############################################################################
 #  Random Forests- Before and After 2008- Cross Validation 
 ###########################################################################
@@ -100,7 +102,7 @@ for(i in seq_len(nrow(hyper_grid_b4_08))) {
                       sampsize = hyper_grid_b4_08$sampsize[i]
   )
   # save rmse
-  hyper_grid_b4_08$rmse[i] <- sqrt(fit$mse)
+  hyper_grid_b4_08$rmse[i] <- sqrt(tail(fit$mse, 1))
 }
 
 hyper_grid_b4_08 <- hyper_grid_b4_08 %>%
@@ -108,11 +110,20 @@ hyper_grid_b4_08 <- hyper_grid_b4_08 %>%
 
 head(hyper_grid_b4_08, 10)
 #     mtry nodesize replace sampsize      rmse
-#1    66        5   FALSE       95    0.2325632
-#2    80       15   FALSE       74    0.2668251
-#3    80        3   FALSE       95    0.3233085
-#4    80       15    TRUE       95    0.3263221
-#5    50        5   FALSE       95    0.3424027
+#1    80        3   FALSE       95    0.1948956
+#2    66        3   FALSE       95    0.1958852
+#3    66        5   FALSE       95    0.1959256
+#4    80        5   FALSE       95    0.1967450
+#5    50        3   FALSE       95    0.1973288
+
+RFmodel_b4_08 <- randomForest(US ~ ., data = datab4_08, importance = TRUE,
+                              ntree = p*10,
+                              mtry = 80,
+                              nodesize = 3,
+                              replace = FALSE,
+                              sampsize = 95,
+                              keep.forest = TRUE)
+saveRDS(RFmodel_b4_08, file = "Models/RF_model_b4_08.rds")
 
 #### Cross-validation after 2008:
 n_08_2 <- dim(dataAfter08)[1]
@@ -135,7 +146,7 @@ for(i in seq_len(nrow(hyper_grid_after_08))) {
                       sampsize = hyper_grid_after_08$sampsize[i]
   )
   # save rmse
-  hyper_grid_after_08$rmse[i] <- sqrt(fit$mse)
+  hyper_grid_after_08$rmse[i] <- sqrt(tail(fit$mse, 1))
 }
 
 hyper_grid_after_08 <- hyper_grid_after_08 %>%
@@ -143,11 +154,21 @@ hyper_grid_after_08 <- hyper_grid_after_08 %>%
 
 head(hyper_grid_after_08, 10)
 #     mtry nodesize replace sampsize      rmse
-#1    30        5   FALSE      117    0.1070436
-#2    66       10   FALSE       73    0.1078672
-#3    10        5   FALSE      117    0.1894131
-#4    50       10    TRUE      117    0.1940878
-#5    50        5   FALSE       92    0.2224923
+#1    50        3   FALSE      117    0.1900644
+#2    80        3   FALSE      117    0.1900901
+#3    30        3   FALSE      117    0.1915321
+#4    66        3   FALSE      117    0.1931518
+#5    66        5   FALSE      117    0.1952007
+
+RFmodel_after_08 <- randomForest(US ~ ., data = dataAfter08, importance = TRUE,
+                                 ntree = p*10,
+                                 mtry = 50,
+                                 nodesize = 3,
+                                 replace = FALSE,
+                                 sampsize = 117,
+                                 keep.forest = TRUE)
+saveRDS(RFmodel_after_08, file = "Models/RFmodel_after_08.rds")
+
 ############################################################################
 #  Random Forests- Before and After COVID-19- Cross Validation 
 ###########################################################################
@@ -180,7 +201,7 @@ for(i in seq_len(nrow(hyper_grid_b4_covid))) {
                       sampsize = hyper_grid_b4_covid$sampsize[i]
   )
   # save rmse
-  hyper_grid_b4_covid$rmse[i] <- sqrt(fit$mse)
+  hyper_grid_b4_covid$rmse[i] <- sqrt(tail(fit$mse, 1))
 }
 
 hyper_grid_b4_covid <- hyper_grid_b4_covid %>%
@@ -188,11 +209,21 @@ hyper_grid_b4_covid <- hyper_grid_b4_covid %>%
 
 head(hyper_grid_b4_covid, 10)
 #     mtry nodesize replace sampsize      rmse
-#1    10        5   FALSE      103      0.02451452
-#2    80        5   FALSE      103      0.08492078
-#3    66        5    TRUE       64      0.09494432
-#4    66        5   FALSE       81      0.09547033
-#5    80       10   FALSE      103      0.10071857
+#1    66        3   FALSE      103 0.07039257
+#2    80        3   FALSE      103 0.07153476
+#3    66        5   FALSE      103 0.07340228
+#4    50        5   FALSE      103 0.07360984
+#5    80        5   FALSE      103 0.07386279
+
+RFmodel_b4_covid <- randomForest(US ~ .,
+                                 data = datab4_covid, importance = TRUE,
+                                 ntree = p*10,
+                                 mtry = 66,
+                                 nodesize = 3,
+                                 replace = FALSE,
+                                 sampsize = 103,
+                                 keep.forest = TRUE)
+saveRDS(RFmodel_b4_covid, file = "Models/RFmodel_b4_covid.rds")
 
 #### Cross-validation after COVID-19:
 n_covid_2 <- dim(dataAfterCovid)[1]
@@ -215,7 +246,7 @@ for(i in seq_len(nrow(hyper_grid_after_covid))) {
                       sampsize = hyper_grid_after_covid$sampsize[i]
   )
   # save rmse
-  hyper_grid_after_covid$rmse[i] <- sqrt(fit$mse)
+  hyper_grid_after_covid$rmse[i] <- sqrt(tail(fit$mse, 1))
 }
 
 hyper_grid_after_covid <- hyper_grid_after_covid %>%
@@ -223,8 +254,20 @@ hyper_grid_after_covid <- hyper_grid_after_covid %>%
 
 head(hyper_grid_after_covid, 10)
 #     mtry nodesize replace sampsize      rmse
-#1    80        5   FALSE       46    0.05705443
-#2    10       15   FALSE       36    0.13846380
-#3    80        3   FALSE       36    0.17699976
-#4    10        3   FALSE       46    0.20728905
-#5    66       15   FALSE       46    0.20956426
+#mtry nodesize replace sampsize      rmse
+#1    30        5   FALSE       46 0.1693780
+#2    50        3   FALSE       46 0.1696800
+#3    80        3   FALSE       46 0.1768711
+#4    80        5   FALSE       46 0.1775708
+#5    66        5   FALSE       46 0.1807041
+
+RFmodel_after_covid <- randomForest(US ~ .,
+                                    data = dataAfterCovid, importance = TRUE,
+                                    ntree = p*10,
+                                    mtry = 30,
+                                    nodesize = 5,
+                                    replace = FALSE,
+                                    sampsize = 46,
+                                    keep.forest = TRUE)
+
+saveRDS(RFmodel_after_covid, file = "Models/RFmodel_after_covid.rds")
