@@ -14,6 +14,7 @@ library(FactoMineR)
 library(stringr)
 library(lfe)  # For fixed-effects regression
 library(dtwclust)
+library(tidyr)
 set.seed(123)
 
 
@@ -223,7 +224,7 @@ monetary <- data_scaled %>% filter(Variable %in% countries)
 
 # Number of clusters (3) (without using variable names)
 # This was arbitrary, no need to choose the best number of clusters
-# Expected groups from G7 countries: 1 North American countries, 2 European, 3 Asian
+# Expected groups from G7 countries: 1 North American country, 2 European, 3 Asian
 k <- 3
 monetary_kmeans <- kmeans(monetary[,-1], centers = k)
 
@@ -294,11 +295,22 @@ scree_plot <- ggplot(sq_df[1:k_star,], aes(x=clusters, y=sq, group=1)) +
 
 scree_plot
 
-# For the general data, it gives us k = 6
+# For the general data, it gives us k = 5
 
 # Add cluster labels
 inflation$Cluster <- as.factor(inflation_kmeans$cluster)
 
+# data long format
+data_long_inflation <- melt(inflation, 
+                           id.vars = c("Variable", "Cluster"),  # Keep these columns fixed
+                           variable.name = "Date",  # Column name for the time periods
+                           value.name = "Value")  # Column name for observations
+
+
+grouped_inflation <- data_long_inflation %>%
+  group_by(Date, Cluster) %>%
+  summarise(mean_value = mean(Value), .groups = "drop") %>%
+  pivot_wider(names_from = Cluster, values_from = mean_value, names_prefix = "Clus_inf_")
 
 
 
@@ -311,23 +323,38 @@ inflation$Cluster <- as.factor(inflation_kmeans$cluster)
 # Monetary policy data
 ######################
 
-monetary <- data_scaled[5:10,]
+countries <- c("CA", "DE", "FR", "IT", "JP", "lag_GB")
+
+# Salect monetary policies
+monetary_dyn <- data_scaled %>% filter(Variable %in% countries)
 
 # Number of clusters (3) (without using variable names)
 # This was arbitrary, no need to choose the best number of clusters
 # Expected groups from G7 countries: 1 North American countries, 2 European, 3 Asian
 k <- 3
-monetary_kmeans_dyn <- tsclust(data_scaled[,-1], type = "partitional", k = k, 
+monetary_kmeans_dyn <- tsclust(monetary_dyn[,-1], type = "partitional", k = k, 
                            distance = "L2", centroid = "pam", seed = 123)
 
 # Add cluster labels
-monetary$Cluster_dyn <- as.factor(monetary_kmeans@cluster)
+monetary_dyn$Cluster_dyn <- as.factor(monetary_kmeans_dyn@cluster)
+
+data_long_monetary_dyn <- melt(monetary_dyn, 
+                           id.vars = c("Variable", "Cluster_dyn"),  # Keep these columns fixed
+                           variable.name = "Date",  # Column name for the time periods
+                           value.name = "Value")  # Column name for observations
+
+
+grouped_monetary <- data_long_monetary_dyn %>%
+  group_by(Date, Cluster_dyn) %>%
+  summarise(mean_value = mean(Value), .groups = "drop") %>%
+  pivot_wider(names_from = Cluster_dyn, values_from = mean_value, names_prefix = "Clus_mon_")
 
 ######################
 # Inflation
 ######################
 
-inflation <- data_scaled[13:104,]
+inflation_dyn <- data_scaled %>% 
+  filter(str_detect(Variable, "^inf_"))
 
 # To pick k (first link)
 # Instead of using a fixed number of clusters, I'll do iteration until I see the
@@ -347,7 +374,7 @@ for (k in 2:n_clusters){
   # from a cluster, in this case also a time-series, whose average distance to all other objects in the same
   # cluster is minimal.
   
-  kmeans_dynamic <- tsclust(inflation[,-1], type = "partitional", k = k, 
+  kmeans_dynamic <- tsclust(inflation_dyn[,-1], type = "partitional", k = k, 
                             distance = "L2", centroid = "pam", seed = 123) 
   
   # For these kmeans the distance in within the clustinfo variable (avg_dist) and computes
@@ -382,12 +409,18 @@ scree_plot
 # k_star = 8
 
 # Add cluster labels
-inflation$Cluster_dyn <- as.factor(kmeans_dynamic@cluster)
+inflation_dyn$Cluster_dyn <- as.factor(kmeans_dynamic@cluster)
+
+# data long format
+data_long_inflation_dyn <- melt(inflation_dyn, 
+                            id.vars = c("Variable", "Cluster_dyn"),  # Keep these columns fixed
+                            variable.name = "Date",  # Column name for the time periods
+                            value.name = "Value")  # Column name for observations
 
 
-# We need to add 3 to  these cluster so we have (1, 2, 3) for monetary
-# and (4, 5, 6, ...) for inflation, the others should be inside the same cluster
-# (the last + 1). 
-
+grouped_inflation <- data_long_inflation_dyn %>%
+  group_by(Date, Cluster_dyn) %>%
+  summarise(mean_value = mean(Value), .groups = "drop") %>%
+  pivot_wider(names_from = Cluster_dyn, values_from = mean_value, names_prefix = "Clus_inf_")
 
 
