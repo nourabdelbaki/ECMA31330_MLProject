@@ -254,7 +254,7 @@ k_star <- which.max(sil_scores)
 sil_df <- tibble(clusters = 1:n_clusters, silhouette = sil_scores)
 
 # Plot silhouette scores
-sil_plot <- ggplot(sil_df, aes(x = clusters, y = silhouette, group = 1)) +
+sil_plot <- ggplot(sil_df[2:n_clusters,], aes(x = clusters, y = silhouette, group = 1)) +
   geom_point(size = 4, color = "blue") +
   geom_line(color = "blue") +
   xlab("Number of Clusters (k)") +
@@ -269,6 +269,9 @@ print(sil_plot)
 print(paste("Optimal number of clusters:", k_star))
 
 
+# Run k_means with k_Star and store the values
+inflation_k <- kmeans(inflation[,-1], centers = k_star) 
+inflation$Cluster <- inflation_k$cluster
 
 ######################################################
 ## KMEANS (By country, by inflation, etc) SECOND APPROACH
@@ -304,18 +307,6 @@ grouped_monetary <- data_long_monetary_dyn %>%
   summarise(mean_value = mean(Value), .groups = "drop") %>%
   pivot_wider(names_from = Cluster_dyn, values_from = mean_value, names_prefix = "Clus_mon_")
 
-# Grouped with PCA
-# Step 1: Compute PCA (assuming `Value` is the numeric feature)
-pca_res <- PCA(data_long_monetary_dyn %>% select(Value), scale.unit = TRUE, graph = FALSE)
-
-# Step 2: Extract principal component scores
-pca_scores <- as.data.frame(pca_res$ind$coord)
-
-# Step 3: Add back the original information
-data_pca <- data_long_monetary_dyn %>%
-  mutate(PC1 = pca_scores$Dim.1)
-
-
 
 ######################
 # Inflation 
@@ -330,7 +321,6 @@ inflation_dyn <- data_scaled %>%
 
 # Maximum number of clusters to test
 n_clusters <- 10
-k_star <- 0
 
 # Running different approaches of the tsclust package
 
@@ -353,7 +343,7 @@ for (k in 2:n_clusters) {
 }
 
 max_dba <- max(sil_scores_dba)
-
+k_other <- which.max(sil_scores_dba)
 
 ####################### APPROACH 2: sdtw_cent/sdtw
 # Initialize silhouette scores
@@ -395,7 +385,7 @@ for (k in 2:n_clusters) {
 
 max_mean <- max(sil_scores_mean)
 
-
+inflation_dyn$Cluster <- as.factor(tsclust_res@cluster)
 ############################################################
 
 # Compare all the approaches and get the best model
@@ -404,16 +394,16 @@ best_max <- max(max_kmeans, max_mean, max_dba, max_stdw)
 
 if (best_max == max_kmeans){
   # Determine the optimal number of clusters
-  k_star <- which.max(sil_scores) 
+  k_star_dyn <- which.max(sil_scores) 
   best_model <- sil_scores
 } else if (best_max == max_mean) {
-  k_star <- which.max(sil_scores_mean) 
+  k_star_dyn <- which.max(sil_scores_mean) 
   best_model <- sil_scores_mean
 } else if (best_max == max_dba) {
-  k_star <- which.max(sil_scores_dba) 
+  k_star_dyn <- which.max(sil_scores_dba) 
   best_model <- sil_scores_dba
 } else {
-  k_star <- which.max(sil_scores_stdw)
+  k_star_dyn <- which.max(sil_scores_stdw)
   best_model <- sil_scores_stdw
 }
 
@@ -434,17 +424,22 @@ sil_plot <- ggplot(sil_df, aes(x = clusters, y = silhouette, group = 1)) +
 print(sil_plot)
 
 # Print optimal k
-print(paste("Optimal number of clusters:", k_star))
+print(paste("Optimal number of clusters:", k_star_dyn))
 
 
 ########################################
 ## The best model is the means from tsclust
+k_star_dyn <- k_star
+tsclust_res <- tsclust(inflation_dyn[,-1], type = "partitional", k = k_star_dyn,
+                      distance = "L2", centroid = "mean", seed = 123, parallel = TRUE)  # DTW-based clustering
 
-tsclust_res <- tsclust(inflation_dyn[,-1], type = "partitional", k = k_star, 
-                       distance = "L2", centroid = "mean", seed = 123, parallel = TRUE)  # DTW-based clustering
+# tsclust_res <- tsclust(inflation_dyn[,-1], type = "partitional", k = k_other, 
+#                        distance = "dtw_basic", centroid = "dba", seed = 123, parallel = TRUE)  # DTW-based clustering
 
-inflation$Cluster <- as.factor(tsclust_res@cluster)
 
+inflation_dyn$Cluster <- as.factor(tsclust_res@cluster)
+
+## Comparing to normal kmeans
 
 
 # data long format
@@ -453,9 +448,15 @@ data_long_inflation <- melt(inflation,
                             variable.name = "Date",  # Column name for the time periods
                             value.name = "Value")  # Column name for observations
 
+# data long format
+data_long_inflation_dyn <- melt(inflation_dyn, 
+                            id.vars = c("Variable", "Cluster"),  # Keep these columns fixed
+                            variable.name = "Date",  # Column name for the time periods
+                            value.name = "Value")  # Column name for observations
+
 
 # Group using average
-grouped_inflation <- data_long_inflation %>%
+grouped_inflation <- data_long_inflation_dyn %>%
   group_by(Date, Cluster) %>%
   summarise(mean_value = mean(Value), .groups = "drop") %>%
   pivot_wider(names_from = Cluster, values_from = mean_value, names_prefix = "Clus_inf_")
@@ -473,17 +474,41 @@ write.csv(grouped_inflation, "inflation_clustered.csv", row.names = FALSE)
 ## VISUALIZATIONS
 
 # Plot using the original clustering method
-ggplot(data_long, aes(x = Date, y = Value, group = Variable, color = as.factor(Cluster))) +
+ggplot(data_long_inflation, aes(x = Date, y = Value, group = Variable, color = as.factor(Cluster))) +
   geom_line(alpha = 0.5) +
   facet_wrap(~Cluster, scales = "free_y") +
   theme_minimal() +
-  ggtitle("Time Series Clustering - Method 1")
+  ggtitle("Clustering with Kmeans")
 
 # Plot using the dynamic clustering method
-ggplot(data_long, aes(x = Date, y = Value, group = Variable, color = as.factor(Cluster_dyn))) +
+ggplot(data_long_inflation_dyn, aes(x = Date, y = Value, group = Variable, color = as.factor(Cluster))) +
   geom_line(alpha = 0.5) +
-  facet_wrap(~Cluster_dyn, scales = "free_y") +
+  facet_wrap(~Cluster, scales = "free_y") +
   theme_minimal() +
-  ggtitle("Time Series Clustering - Method 2")
+  ggtitle("Time Series Clustering - Mean Centroids")
 
+library(patchwork)  # For combining plots
 
+data_long_inflation$Date <- as.Date(data_long_inflation$Date)
+data_long_inflation_dyn$Date <- as.Date(data_long_inflation_dyn$Date)
+
+# Define the first plot (K-means)
+p1 <- ggplot(data_long_inflation, aes(x = Date, y = Value, group = Variable, color = as.factor(Cluster))) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~Cluster, scales = "free_y") +
+  theme_minimal() +
+  ggtitle("Clustering with Kmeans") +
+  scale_x_date(date_breaks = "10 year", date_labels = "%Y") +  # Adjust date formatting
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Define the second plot (DBA Centroids)
+p2 <- ggplot(data_long_inflation_dyn, aes(x = Date, y = Value, group = Variable, color = as.factor(Cluster))) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~Cluster, scales = "free_y") +
+  theme_minimal() +
+  ggtitle("Time Series Clustering - Mean Centroids") +
+  scale_x_date(date_breaks = "10 year", date_labels = "%Y") +  # Adjust date formatting
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Combine both plots
+p1 + p2 + plot_layout(guides = "collect")

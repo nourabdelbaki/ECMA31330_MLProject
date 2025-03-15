@@ -27,6 +27,46 @@ data <- read.csv("1998_G7_US.csv")
 #  Descriptive Statistics
 ###########################################################################
 
+# Convert the date column to Date format 
+data <- data %>%
+  mutate(date = seq.Date(from = as.Date("1998-01-01"), by = "month", length.out = n()))
+
+# Reshape data for plotting
+data_long <- data %>%
+  select(date, CA, JP, lag_GB, FR, IT, DE, US) %>%
+  pivot_longer(cols = -date, names_to = "Country", values_to = "InterestRate")
+
+# Define crisis periods
+crisis_periods <- data.frame(
+  start = as.Date(c("2008-09-01", "2020-03-01")),
+  end = as.Date(c("2009-06-01", "2021-03-01"))
+)
+
+# Plot the monetary policies with crisis periods highlighted
+ggplot(data_long, aes(x = date, y = InterestRate, color = Country)) +
+  geom_line(size = 1) +
+  geom_rect(data = crisis_periods, inherit.aes = FALSE,
+            aes(xmin = start, xmax = end, ymin = -Inf, ymax = Inf),
+            fill = "grey", alpha = 0.2) +
+  labs(title = "Monetary Policies of G7 Countries (Excluding US)",
+       x = "Year",
+       y = "Interest Rate",
+       color = "Country") +
+  theme_minimal()
+
+# Identify similar trends using rolling correlations
+rolling_corr <- data %>%
+  mutate(across(-date, ~ rollapply(.x, width = 12, FUN = mean, align = "right", fill = NA))) %>%
+  select(-date)
+
+# Compute hierarchical clustering to find countries with similar trends
+dist_matrix <- dist(t(rolling_corr), method = "euclidean")
+hc <- hclust(dist_matrix, method = "ward.D")
+
+# Plot the dendrogram
+plot(hc, main = "Clustering of G7 Monetary Policies", xlab = "", sub = "", cex = 0.8)
+
+
 #### ADD HERE PLOTS AND/OR TABLES FOR WRITE UP
 ##### TO FIX!!!!!!! 
 ############################################################################
@@ -61,7 +101,7 @@ cor_df <- cor_df %>%
   distinct(pair, .keep_all = TRUE)
 
 # Select top 50 absolute correlations
-top_cor <- cor_df[order(-abs(cor_df$Correlation)), ][1:50, ]
+top_cor <- cor_df[order(-abs(cor_df$Correlation)), ][1:25, ]
 
 # Plot the highest 50 correlations
 ggplot(top_cor, aes(x = reorder(paste(Var1, Var2, sep = " - "),
@@ -71,7 +111,7 @@ ggplot(top_cor, aes(x = reorder(paste(Var1, Var2, sep = " - "),
   coord_flip() +
   theme_minimal() +
   scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
-  labs(title = "Top 50 Correlations of Selected Variables with All Variables",
+  labs(title = "Top 25 Correlations of Monetary Policies with All Variables",
        x = "Variable Pair", y = "Correlation")
 
 ## Quite informative and insightful for next steps! 
