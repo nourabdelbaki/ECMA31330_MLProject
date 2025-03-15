@@ -127,35 +127,6 @@ for (i in all_x_interest) {
 # Print results
 print(results)
 
-## CA: Reject H_{0} (there is no statistical significant difference)
-#$CA$test_result; Wilcoxon signed rank test with continuity correction
-# data:  beta_reg and beta_noisy
-#V = 22160, p-value = 0.01716
-#alternative hypothesis: true location shift is not equal to 0
-
-## lag_GB: Do Not Reject H_{0} (there is no statistical significant difference)
-# $lag_GB$test_result
-# Wilcoxon signed rank test with continuity correction
-# data:  beta_reg and beta_noisy
-# V = 25600, p-value = 0.8844
-# alternative hypothesis: true location shift is not equal to 0
-
-## FR: Do Not Reject H_{0} (there is no statistical significant difference)
-# $FR$test_result
-# Wilcoxon signed rank test with continuity correction
-# data:  beta_reg and beta_noisy
-# V = 23818, p-value = 0.83
-# alternative hypothesis: true location shift is not equal to 0
-
-## JP: Reject H_{0} (there is no statistical significant difference)
-# $JP$test_result
-# Wilcoxon signed rank test with continuity correction
-# data:  beta_reg and beta_noisy
-# V = 26856, p-value = 0.00141
-# alternative hypothesis: true location shift is not equal to 0
-
-### CA & JP's coefficients fail the robustness check
-
 ############################################################################
 #  Evaluating Random Forest-generated Coefficients- Before 2008:
 ############################################################################ 
