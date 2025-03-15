@@ -8,8 +8,8 @@
 library(data.table)
 library(dplyr)
 library(tidyr)
+library(zoo)
 library(lubridate)
-library(readxl)
 library(purrr)
 library(randomForest)
 library(ggplot2)
@@ -28,16 +28,19 @@ setwd("~/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ECMA31330_MLProject")
 
 ## Read dataset
 data <- read.csv("1998_G7_US.csv")
+## Define datasets:
+datab4_08 <- data[data$date < as.yearmon("Dec 2007", "%b %Y"),] 
+dataAfter08 <- data[data$date >=  as.yearmon("Dec 2007", "%b %Y") &
+                      data$date < as.yearmon("March 2020", "%b %Y"), ]
+
+datab4_covid <- data[data$date >= as.yearmon("June 2009", "%b %Y") &
+                       data$date < as.yearmon("March 2020", "%b %Y"),] 
+dataAfterCovid <- data[data$date >=  as.yearmon("March 2020", "%b %Y"), ]
+
 ############################################################################
 #  Random Forests- Entire Dataset
 ###########################################################################
-rf_model <- randomForest(US ~ ., data = data, importance = TRUE,
-                         ntree = p*10,
-                         mtry = 80,
-                         nodesize = 15,
-                         replace = FALSE,
-                         sampsize = 80,
-                         keep.forest = TRUE)
+rf_model <- readRDS("Models/RF_model_ALL.rds")
 
 # Extract feature importance
 importance_plot <- importance(rf_model)
@@ -124,13 +127,7 @@ plotPartial(pdp_gb_rf_all,
 #  Random Forests- Before and After 2008 
 ###########################################################################
 ####### Random Forest Before '08 
-RFmodel_b4_08 <- randomForest(US ~ ., data = datab4_08, importance = TRUE,
-                              ntree = p*10,
-                              mtry = 66,
-                              nodesize = 5,
-                              replace = FALSE,
-                              sampsize = 95,
-                              keep.forest = TRUE)
+RFmodel_b4_08 <- readRDS("Models/RF_model_b4_08.rds")
 
 # Extract feature importance
 importance_plot2 <- importance(RFmodel_b4_08)
@@ -152,13 +149,7 @@ barplot(top_50_2$Importance, names.arg = top_50_2$Feature,
         cex.names = 0.7) # Reduce text size for readability
 
 ####### Random Forest After '08 
-RFmodel_after_08 <- randomForest(US ~ ., data = dataAfter08, importance = TRUE,
-                                 ntree = p*10,
-                                 mtry = 30,
-                                 nodesize = 5,
-                                 replace = FALSE,
-                                 sampsize = 117,
-                                 keep.forest = TRUE)
+RFmodel_after_08 <- readRDS("Models/RFmodel_after_08.rds")
 
 # Extract feature importance
 importance_plot3<- importance(RFmodel_after_08)
@@ -221,39 +212,47 @@ ggplot(long_importance_08, aes(x = reorder(Feature, Importance),
 # Coefficients before '08:
 data_pred_b4_08 <- datab4_08[, -11] #remove US from the data
 
-effect_CA_b4_08 <- partial_deriv_approx(rf_model, data_pred_b4_08, "CA",
+datab4_08$beta_CA <- partial_deriv_approx(RFmodel_b4_08,
+                                        data_pred_b4_08, "CA",
                                         delta_value)
-effect_GB_b4_08 <- partial_deriv_approx(rf_model, data_pred_b4_08, "lag_GB", 
+datab4_08$beta_GB <- partial_deriv_approx(RFmodel_b4_08,
+                                        data_pred_b4_08, "lag_GB", 
                                         delta_value)
-effect_EU_b4_08 <- partial_deriv_approx(rf_model, data_pred_b4_08, "FR", 
+datab4_08$beta_EU <- partial_deriv_approx(RFmodel_b4_08,
+                                        data_pred_b4_08, "FR", 
                                         delta_value)
-effect_JP_b4_08 <- partial_deriv_approx(rf_model, data_pred_b4_08, "JP", 
+datab4_08$beta_JP <- partial_deriv_approx(RFmodel_b4_08,
+                                        data_pred_b4_08, "JP", 
                                         delta_value)
+
+datab4_08$crisis <- 0 
 
 # Coefficients after '08:
 data_pred_after_08 <- dataAfter08[, -11] #remove US from the data
 
-effect_CA_after_08 <- partial_deriv_approx(rf_model, data_pred_after_08, "CA",
+dataAfter08$beta_CA <- partial_deriv_approx(RFmodel_after_08,
+                                           data_pred_after_08, "CA",
                                            delta_value)
-effect_GB_after_08 <- partial_deriv_approx(rf_model, data_pred_after_08, "lag_GB", 
+dataAfter08$beta_GB <- partial_deriv_approx(RFmodel_after_08,
+                                           data_pred_after_08, "lag_GB", 
                                            delta_value)
-effect_EU_after_08 <- partial_deriv_approx(rf_model, data_pred_after_08, "FR", 
+dataAfter08$beta_EU <- partial_deriv_approx(RFmodel_after_08,
+                                           data_pred_after_08, "FR", 
                                            delta_value)
-effect_JP_after_08 <- partial_deriv_approx(rf_model, data_pred_after_08, "JP", 
+dataAfter08$beta_JP <- partial_deriv_approx(RFmodel_after_08,
+                                           data_pred_after_08, "JP", 
                                            delta_value)
 
+dataAfter08$crisis <- 1
+
+data_08_ALL <- rbind(datab4_08, dataAfter08)
+
+write.csv(data_08_ALL, "data_08_all.csv")
 ############################################################################
 #  Random Forests- Before and After COVID-19
 ###########################################################################
 ####### Random Forest Before COVID-19
-RFmodel_b4_covid <- randomForest(US ~ .,
-                                 data = datab4_covid, importance = TRUE,
-                                 ntree = p*10,
-                                 mtry = 10,
-                                 nodesize = 5,
-                                 replace = FALSE,
-                                 sampsize = 103,
-                                 keep.forest = TRUE)
+RFmodel_b4_covid <- readRDS("Models/RFmodel_b4_covid.rds")
 
 # Extract feature importance
 importance_plot4<- importance(RFmodel_b4_covid)
@@ -275,14 +274,8 @@ barplot(top_50_4$Importance, names.arg = top_50_5$Feature,
         cex.names = 0.7) # Reduce text size for readability
 
 
-RFmodel_after_covid <- randomForest(US ~ .,
-                                    data = dataAfterCovid, importance = TRUE,
-                                    ntree = p*10,
-                                    mtry = 80,
-                                    nodesize = 5,
-                                    replace = FALSE,
-                                    sampsize = 46,
-                                    keep.forest = TRUE)
+####### Random Forest After COVID-19
+RFmodel_after_covid <- readRDS("Models/RFmodel_after_covid.rds")
 
 # Extract feature importance
 importance_plot5<- importance(RFmodel_after_covid)
@@ -346,39 +339,43 @@ ggplot(long_importance, aes(x = reorder(Feature, Importance),
 # Coefficients before COVID-19:
 data_pred_b4_covid <- datab4_covid[, -11] #remove US from the data
 
-effect_CA_b4_covid <- partial_deriv_approx(rf_model, data_pred_b4_covid, "CA",
+datab4_covid$beta_CA <- partial_deriv_approx(RFmodel_b4_covid,
+                                           data_pred_b4_covid, "CA",
                                            delta_value)
-effect_GB_b4_covid <- partial_deriv_approx(rf_model, data_pred_b4_covid, "lag_GB", 
+datab4_covid$beta_GB <- partial_deriv_approx(RFmodel_b4_covid,
+                                           data_pred_b4_covid, "lag_GB", 
                                            delta_value)
-effect_EU_b4_covid <- partial_deriv_approx(rf_model, data_pred_b4_covid, "FR", 
+datab4_covid$beta_FR <- partial_deriv_approx(RFmodel_b4_covid,
+                                           data_pred_b4_covid, "FR", 
                                            delta_value)
-effect_JP_b4_covid <- partial_deriv_approx(rf_model, data_pred_b4_covid, "JP", 
+datab4_covid$beta_JP <- partial_deriv_approx(RFmodel_b4_covid,
+                                           data_pred_b4_covid, "JP", 
                                            delta_value)
+datab4_covid$crisis <- 0 
 
 # Coefficients after COVID-19:
 data_pred_after_covid <- dataAfterCovid[, -11] #remove US from the data
 
-effect_CA_after_covid <- partial_deriv_approx(rf_model, data_pred_after_covid,
+dataAfterCovid$beta_CA <- partial_deriv_approx(RFmodel_after_covid,
+                                              data_pred_after_covid,
                                               "CA", delta_value)
-effect_GB_after_covid <- partial_deriv_approx(rf_model, data_pred_after_covid, 
+dataAfterCovid$beta_GB <- partial_deriv_approx(RFmodel_after_covid,
+                                              data_pred_after_covid, 
                                               "lag_GB", delta_value)
-effect_EU_after_covid <- partial_deriv_approx(rf_model, data_pred_after_covid,
+dataAfterCovid$beta_FR <- partial_deriv_approx(RFmodel_after_covid,
+                                              data_pred_after_covid,
                                               "FR", delta_value)
-effect_JP_after_covid <- partial_deriv_approx(rf_model, data_pred_after_covid,
+dataAfterCovid$beta_JP <- partial_deriv_approx(RFmodel_after_covid,
+                                              data_pred_after_covid,
                                               "JP", delta_value)
+dataAfterCovid$crisis <- 1
+
+data_covid_ALL <- rbind(datab4_covid, dataAfterCovid)
+write.csv(data_covid_ALL, "data_covid_all.csv")
 ############################################################################
 #  Kmeans; full exploration code can be found in R script: CV_Kmeans.R
 ###########################################################################
-# Scale the numeric data
-data_no_date <- data[, -c(1,11)] #Remove date and US policy
-data_scaled <- scale(data_no_date[, lapply(.SD, as.numeric),
-                                  .SDcols = names(data_no_date)])
 
-inflation_dyn <- data_scaled %>% 
-  filter(str_detect(Variable, "^inf_"))
-
-kmeans_dynamic <- tsclust(inflation_dyn[,-1], type = "partitional", k = 8, 
-                          distance = "L2", centroid = "pam", seed = 123) 
 ############################################################################
 #  Linear Regression-Before and After Covid-19
 ###########################################################################
