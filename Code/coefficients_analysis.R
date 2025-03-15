@@ -1,24 +1,13 @@
 #     Nour Abdelbaki & Giuliana Triberti
-## In this code, we are executing the cross-validated random forests, K-means
-# clustering based on our exploration in file CV_Kmeans.R, calculating coefficients,
-# and running linear regression model to detect whether or not crises change
-# our coefficients. 
+## In this file, 
 
 # Import Libraries
 library(data.table)
 library(dplyr)
 library(tidyr)
 library(zoo)
-library(lubridate)
 library(purrr)
-library(randomForest)
 library(ggplot2)
-library(corrplot)
-library(reshape2)
-library(factoextra)
-library(FactoMineR)
-library(stringr)
-library(lfe)  # For fixed-effects regression
 library(DALEX) # SHAP 
 library(pdp) # Partial Dependence Plot
 set.seed(123)
@@ -28,6 +17,7 @@ setwd("~/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ECMA31330_MLProject")
 
 ## Read dataset
 data <- read.csv("1998_G7_US.csv")
+
 ## Define datasets:
 datab4_08 <- data[data$date < as.yearmon("Dec 2007", "%b %Y"),] 
 dataAfter08 <- data[data$date >=  as.yearmon("Dec 2007", "%b %Y") &
