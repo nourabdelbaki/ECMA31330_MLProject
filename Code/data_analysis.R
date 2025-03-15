@@ -15,6 +15,7 @@ library(stringr)
 library(lfe)  # For fixed-effects regression
 library(dtwclust)
 library(tidyr)
+library(cluster)
 set.seed(123)
 
 
@@ -26,12 +27,12 @@ set.seed(123)
 # from this regression we want to see if the effect of time is significant
 
 
-# USING DATA "1990_G7_US"
-data <- fread("1990_G7_US.csv", na.strings = "NA")
+# USING DATA "1998_G7_US"
+data <- fread("1998_G7_US.csv", na.strings = "NA")
 
 # We need to format the date for future use
 data <- data %>%
-  mutate(date = seq.Date(from = as.Date("1990-01-01"), by = "month", length.out = n()))
+  mutate(date = seq.Date(from = as.Date("1998-01-01"), by = "month", length.out = n()))
 
 # Take away US monetary policy
 data <- data %>% select(-US)
@@ -58,59 +59,57 @@ setcolorder(data_scaled, c("Variable", setdiff(names(data_scaled), "Variable")))
 # Instead of using a fixed number of clusters, I'll do iteration until I see the
 # addition of one cluster is not worth it (https://www.datacamp.com/tutorial/k-means-clustering-r)
 
-n_clusters <- 50
+data_kmeans <- data_scaled
 
-# Initialize total within-cluster sum of squares
-sq <- numeric(n_clusters)
+# Maximum number of clusters to test
+n_clusters <- 10
+
+# Initialize silhouette scores
+sil_scores <- numeric(n_clusters - 1)  # k must be at least 2
 
 k_star <- 0
-diff_star <- 0
 
-# Loop looking at every option of clusters
-for (k in 1:n_clusters){
-  kmeans_res <- kmeans(data_scaled[,-1], centers = k)
-  sq[k] <- kmeans_res$tot.withinss
+# Loop through different cluster numbers
+for (k in 2:n_clusters) {  
+  kmeans_res <- kmeans(data_kmeans[,-1], centers = k)  # Run k-means
   
-  #Checking the difference once we add a new cluster
-  if (k == 1){
-    diff <- abs(sq[k])
-  } else {
-    diff <- abs(sq[k] - sq[k-1])
-  }
+  # Compute silhouette score
+  sil_info <- silhouette(kmeans_res$cluster, dist(data_kmeans[,-1]))
+  sil_scores[k] <- mean(sil_info[, 3])  # Store average silhouette width
   
-  # Adding a small enough threshold (where the plot starts appearing flat)
-  if (diff <= 1000) {
-    k_star <- k
-    diff_Star <- diff
-    break
-  }
 }
 
-# Produce a scree plot
-sq_df <- tibble(clusters = 1:n_clusters, sq=sq)
+# Determine the optimal number of clusters
+k_star <- which.max(sil_scores) 
 
+# Create a dataframe for visualization
+sil_df <- tibble(clusters = 1:n_clusters, silhouette = sil_scores)
 
-scree_plot <- ggplot(sq_df[1:k_star,], aes(x=clusters, y=sq, group=1)) +
-  geom_point(size=4) +
-  geom_line() + 
-  scale_x_continuous() +
-  xlab("Num of clusters")
+# Plot silhouette scores
+sil_plot <- ggplot(sil_df, aes(x = clusters, y = silhouette, group = 1)) +
+  geom_point(size = 4, color = "blue") +
+  geom_line(color = "blue") +
+  xlab("Number of Clusters (k)") +
+  ylab("Average Silhouette Score") +
+  scale_x_continuous(breaks = seq(1, n_clusters, by = 1)) +
+  ggtitle("Silhouette Scores for Different k") +
+  theme_minimal()
 
-scree_plot
+print(sil_plot)
 
-# For the general data, it gives us k = 8
+# Print optimal k
+print(paste("Optimal number of clusters:", k_star))
 
 # Add cluster labels
-data_scaled$Cluster <- as.factor(kmeans_res$cluster)
+data_kmeans$Cluster <- as.factor(kmeans_res$cluster)
 
-# If we add the cluster level to the database it would create difficulties 
+# If we add the cluster level to the database it would create difficulties
 # in the analysis. We can treat it as a third dimension instead
 
-data_long <- melt(data_scaled, 
+data_long <- melt(data_kmeans,
                   id.vars = c("Variable", "Cluster"),  # Keep these columns fixed
                   variable.name = "Date",  # Column name for the time periods
                   value.name = "Value")  # Column name for observations
-
 
 
 ####################################
@@ -132,80 +131,57 @@ data_long <- melt(data_scaled,
 # Instead of using a fixed number of clusters, I'll do iteration until I see the
 # addition of one cluster is not worth it (https://www.datacamp.com/tutorial/k-means-clustering-r)
 
-n_clusters <- 50
+data_kmeans_dyn <- data_scaled
 
-# Initialize total within-cluster sum of squares
-sq <- numeric(n_clusters)
+# Maximum number of clusters to test
+n_clusters <- 10
 
+# Initialize silhouette scores
+sil_scores <- numeric(n_clusters - 1)  # k must be at least 2
 k_star <- 0
-diff_star <- 0
 
-
-# Loop looking at every option of clusters
-for (k in 2:n_clusters){
-  # For centroid: One approach is to use partition around medoids (PAM). A medoid is simply a representative object
-  # from a cluster, in this case also a time-series, whose average distance to all other objects in the same
-  # cluster is minimal.
+# Loop through different cluster numbers
+for (k in 2:n_clusters) {  
+  tsclust_res <- tsclust(data_kmeans_dyn[,-1], type = "partitional", k = k, 
+                         distance = "L2", centroid = "dba", seed = 123, parallel = TRUE)  # DTW-based clustering
   
-  kmeans_dynamic <- tsclust(data_scaled[,-1], type = "partitional", k = k, 
-                            distance = "L2", centroid = "pam", seed = 123) 
+  # Compute dissimilarity matrix
+  diss_matrix <- proxy::dist(data_kmeans_dyn[, -1], method = "L2")  
   
-  # For these kmeans the distance in within the clustinfo variable (avg_dist) and computes
-  # the average distance between series and their respective centroids (crisp partition).
-  
-  sq[k] <- max(kmeans_dynamic@clusinfo$av_dist)
-  
-  #Checking the difference once we add a new cluster
-  diff <- abs(sq[k] - sq[k-1])
-
-  
-  #Adding a small enough threshold (where the plot starts appearing flat)
-  if (diff <= 0.0001) {
-    k_star <- k
-    diff_star <- diff
-    break
-  }
+  # Compute silhouette score
+  sil_info <- silhouette(tsclust_res@cluster, diss_matrix)  
+  sil_scores[k] <- mean(sil_info[, 3])  # Store average silhouette width
 }
 
-# Produce a scree plot
-sq_df <- tibble(clusters = 1:n_clusters, sq=sq)
+# Determine the optimal number of clusters
+k_star <- which.max(sil_scores) 
 
+# Create a dataframe for visualization
+sil_df <- tibble(clusters = 1:n_clusters, silhouette = sil_scores)
 
-scree_plot <- ggplot(sq_df[2:k_star,], aes(x=clusters, y=sq, group=1)) +
-  geom_point(size=4) +
-  geom_line() + 
-  scale_x_continuous() +
-  xlab("Num of clusters")
+# Plot silhouette scores
+sil_plot <- ggplot(sil_df, aes(x = clusters, y = silhouette, group = 1)) +
+  geom_point(size = 4, color = "blue") +
+  geom_line(color = "blue") +
+  xlab("Number of Clusters (k)") +
+  ylab("Average Silhouette Score") +
+  scale_x_continuous(breaks = seq(1, n_clusters, by = 1)) +
+  ggtitle("Silhouette Scores for Different k") +
+  theme_minimal()
 
-scree_plot
+print(sil_plot)
 
-# k_star = 10
+# Print optimal k
+print(paste("Optimal number of clusters:", k_star))
 
 # Add cluster labels
-data_scaled$Cluster_dyn <- as.factor(kmeans_dynamic@cluster)
+data_kmeans_dyn$Cluster <- as.factor(tsclust_res@cluster)
 
-# If we add the cluster level to the database it would create difficulties 
-# in the analysis. We can treat it as a third dimension instead
-
-data_long <- melt(data_scaled, 
-                  id.vars = c("Variable", "Cluster", "Cluster_dyn"),  # Keep these columns fixed
+# Convert data to long format for visualization
+data_long_dyn <- melt(data_kmeans_dyn,
+                  id.vars = c("Variable", "Cluster"),  # Keep these columns fixed
                   variable.name = "Date",  # Column name for the time periods
                   value.name = "Value")  # Column name for observations
-
-
-# Plot using the original clustering method
-ggplot(data_long, aes(x = Date, y = Value, group = Variable, color = as.factor(Cluster))) +
-  geom_line(alpha = 0.5) +
-  facet_wrap(~Cluster, scales = "free_y") +
-  theme_minimal() +
-  ggtitle("Time Series Clustering - Method 1")
-
-# Plot using the dynamic clustering method
-ggplot(data_long, aes(x = Date, y = Value, group = Variable, color = as.factor(Cluster_dyn))) +
-  geom_line(alpha = 0.5) +
-  facet_wrap(~Cluster_dyn, scales = "free_y") +
-  theme_minimal() +
-  ggtitle("Time Series Clustering - Method 2")
 
 
 
@@ -249,69 +225,52 @@ grouped_monetary <- data_long_monetary %>%
 
 
 inflation <- data_scaled %>% 
-  filter(str_detect(Variable, "^inf_"))
+  filter(str_detect(Variable, "^inf_|^lag_inf"))
 
 # To pick k (first link)
 # Instead of using a fixed number of clusters, I'll do iteration until I see the
 # addition of one cluster is not worth it (https://www.datacamp.com/tutorial/k-means-clustering-r)
 
-n_clusters <- 50
+# Maximum number of clusters to test
+n_clusters <- 10
 
-# Initialize total within-cluster sum of squares
-sq <- numeric(n_clusters)
+# Initialize silhouette scores
+sil_scores <- numeric(n_clusters - 1) 
 
 k_star <- 0
-diff_star <- 0
 
-# Loop looking at every option of clusters
-for (k in 1:n_clusters){
-  inflation_kmeans <- kmeans(inflation[,-1], centers = k)
-  sq[k] <- inflation_kmeans$tot.withinss
+# Loop through different cluster numbers
+for (k in 2:n_clusters) {  
+  inflation_k <- kmeans(inflation[,-1], centers = k)  # Run k-means
   
-  #Checking the difference once we add a new cluster
-  if (k == 1){
-    diff <- abs(sq[k])
-  } else {
-    diff <- abs(sq[k] - sq[k-1])
-  }
+  # Compute silhouette score
+  sil_info <- silhouette(inflation_k$cluster, dist(inflation[,-1]))
+  sil_scores[k] <- mean(sil_info[, 3])  # Store average silhouette width
   
-  # Adding a small enough threshold (where the plot starts appearing flat)
-  if (diff <= 1000) {
-    k_star <- k
-    diff_star <- diff
-    break
-  }
 }
 
-# Produce a scree plot
-sq_df <- tibble(clusters = 1:n_clusters, sq=sq)
+max_kmeans <- max(sil_scores)
 
+# Determine the optimal number of clusters
+k_star <- which.max(sil_scores) 
 
-scree_plot <- ggplot(sq_df[1:k_star,], aes(x=clusters, y=sq, group=1)) +
-  geom_point(size=4) +
-  geom_line() + 
-  scale_x_continuous() +
-  xlab("Num of clusters")
+# Create a dataframe for visualization
+sil_df <- tibble(clusters = 1:n_clusters, silhouette = sil_scores)
 
-scree_plot
+# Plot silhouette scores
+sil_plot <- ggplot(sil_df, aes(x = clusters, y = silhouette, group = 1)) +
+  geom_point(size = 4, color = "blue") +
+  geom_line(color = "blue") +
+  xlab("Number of Clusters (k)") +
+  ylab("Average Silhouette Score") +
+  scale_x_continuous(breaks = seq(1, n_clusters, by = 1)) +
+  ggtitle("Silhouette Scores for Different k") +
+  theme_minimal()
 
-# For the general data, it gives us k = 5
+print(sil_plot)
 
-# Add cluster labels
-inflation$Cluster <- as.factor(inflation_kmeans$cluster)
-
-# data long format
-data_long_inflation <- melt(inflation, 
-                           id.vars = c("Variable", "Cluster"),  # Keep these columns fixed
-                           variable.name = "Date",  # Column name for the time periods
-                           value.name = "Value")  # Column name for observations
-
-
-grouped_inflation <- data_long_inflation %>%
-  group_by(Date, Cluster) %>%
-  summarise(mean_value = mean(Value), .groups = "drop") %>%
-  pivot_wider(names_from = Cluster, values_from = mean_value, names_prefix = "Clus_inf_")
-
+# Print optimal k
+print(paste("Optimal number of clusters:", k_star))
 
 
 
@@ -343,84 +302,192 @@ data_long_monetary_dyn <- melt(monetary_dyn,
                            variable.name = "Date",  # Column name for the time periods
                            value.name = "Value")  # Column name for observations
 
-
+# Grouped with mean
 grouped_monetary <- data_long_monetary_dyn %>%
   group_by(Date, Cluster_dyn) %>%
   summarise(mean_value = mean(Value), .groups = "drop") %>%
   pivot_wider(names_from = Cluster_dyn, values_from = mean_value, names_prefix = "Clus_mon_")
 
+# Grouped with PCA
+# Step 1: Compute PCA (assuming `Value` is the numeric feature)
+pca_res <- PCA(data_long_monetary_dyn %>% select(Value), scale.unit = TRUE, graph = FALSE)
+
+# Step 2: Extract principal component scores
+pca_scores <- as.data.frame(pca_res$ind$coord)
+
+# Step 3: Add back the original information
+data_pca <- data_long_monetary_dyn %>%
+  mutate(PC1 = pca_scores$Dim.1)
+
+
+
 ######################
-# Inflation
+# Inflation 
 ######################
 
 inflation_dyn <- data_scaled %>% 
-  filter(str_detect(Variable, "^inf_"))
+  filter(str_detect(Variable, "^inf_|^lag_inf"))
 
 # To pick k (first link)
 # Instead of using a fixed number of clusters, I'll do iteration until I see the
 # addition of one cluster is not worth it (https://www.datacamp.com/tutorial/k-means-clustering-r)
 
-n_clusters <- 50
-
-# Initialize total within-cluster sum of squares
-sq <- numeric(n_clusters)
-
+# Maximum number of clusters to test
+n_clusters <- 10
 k_star <- 0
-diff_star <- 0
 
-# Loop looking at every option of clusters
-for (k in 2:n_clusters){
-  # For centroid: One approach is to use partition around medoids (PAM). A medoid is simply a representative object
-  # from a cluster, in this case also a time-series, whose average distance to all other objects in the same
-  # cluster is minimal.
+# Running different approaches of the tsclust package
+
+######################  APPROACH 1: DBA/DTW
+# Initialize silhouette scores
+sil_scores_dba <- numeric(n_clusters - 1)  # k must be at least 2
+
+# Loop through different cluster numbers
+for (k in 2:n_clusters) {  
+  # Using "dtw_basic" and "parallel" for faster computation
+  tsclust_res <- tsclust(inflation_dyn[,-1], type = "partitional", k = k, 
+                         distance = "dtw_basic", centroid = "dba", seed = 123, parallel = TRUE)  # DTW-based clustering
   
-  kmeans_dynamic <- tsclust(inflation_dyn[,-1], type = "partitional", k = k, 
-                            distance = "L2", centroid = "pam", seed = 123) 
+  # Compute dissimilarity matrix
+  diss_matrix <- proxy::dist(inflation_dyn[, -1], method = "dtw_basic")  
   
-  # For these kmeans the distance in within the clustinfo variable (avg_dist) and computes
-  # the average distance between series and their respective centroids (crisp partition).
-  
-  sq[k] <- max(kmeans_dynamic@clusinfo$av_dist)
-  
-  #Checking the difference once we add a new cluster
-  diff <- abs(sq[k] - sq[k-1])
-  
-  
-  #Adding a small enough threshold (where the plot starts appearing flat)
-  if (diff <= 0.0001) {
-    k_star <- k
-    diff_star <- diff
-    break
-  }
+  # Compute silhouette score
+  sil_info <- silhouette(tsclust_res@cluster, diss_matrix)  
+  sil_scores_dba[k] <- mean(sil_info[, 3])  # Store average silhouette width
 }
 
-# Produce a scree plot
-sq_df <- tibble(clusters = 1:n_clusters, sq=sq)
+max_dba <- max(sil_scores_dba)
 
 
-scree_plot <- ggplot(sq_df[2:k_star,], aes(x=clusters, y=sq, group=1)) +
-  geom_point(size=4) +
-  geom_line() + 
-  scale_x_continuous() +
-  xlab("Num of clusters")
+####################### APPROACH 2: sdtw_cent/sdtw
+# Initialize silhouette scores
+sil_scores_stdw <- numeric(n_clusters - 1)  # k must be at least 2
 
-scree_plot
+# Loop through different cluster numbers
+for (k in 2:n_clusters) {  
+  # Using "dtw_basic" and "parallel" for faster computation
+  tsclust_res <- tsclust(inflation_dyn[,-1], type = "partitional", k = k, 
+                         distance = "L2", centroid = "sdtw_cent", seed = 123, parallel = TRUE)  # DTW-based clustering
+  
+  # Compute dissimilarity matrix
+  diss_matrix <- proxy::dist(inflation_dyn[, -1], method = "L2")  
+  
+  # Compute silhouette score
+  sil_info <- silhouette(tsclust_res@cluster, diss_matrix)  
+  sil_scores_stdw[k] <- mean(sil_info[, 3])  # Store average silhouette width
+}
 
-# k_star = 8
+max_stdw <- max(sil_scores_stdw)
 
-# Add cluster labels
-inflation_dyn$Cluster_dyn <- as.factor(kmeans_dynamic@cluster)
+###################### APPROACH 3: Mean/L2
+# Initialize silhouette scores
+sil_scores_mean <- numeric(n_clusters - 1)  # k must be at least 2
+
+# Loop through different cluster numbers
+for (k in 2:n_clusters) {  
+  # Using "dtw_basic" and "parallel" for faster computation
+  tsclust_res <- tsclust(inflation_dyn[,-1], type = "partitional", k = k, 
+                         distance = "L2", centroid = "mean", seed = 123, parallel = TRUE)  # DTW-based clustering
+  
+  # Compute dissimilarity matrix
+  diss_matrix <- proxy::dist(inflation_dyn[, -1], method = "L2")  
+  
+  # Compute silhouette score
+  sil_info <- silhouette(tsclust_res@cluster, diss_matrix)  
+  sil_scores_mean[k] <- mean(sil_info[, 3])  # Store average silhouette width
+}
+
+max_mean <- max(sil_scores_mean)
+
+
+############################################################
+
+# Compare all the approaches and get the best model
+
+best_max <- max(max_kmeans, max_mean, max_dba, max_stdw)
+
+if (best_max == max_kmeans){
+  # Determine the optimal number of clusters
+  k_star <- which.max(sil_scores) 
+  best_model <- sil_scores
+} else if (best_max == max_mean) {
+  k_star <- which.max(sil_scores_mean) 
+  best_model <- sil_scores_mean
+} else if (best_max == max_dba) {
+  k_star <- which.max(sil_scores_dba) 
+  best_model <- sil_scores_dba
+} else {
+  k_star <- which.max(sil_scores_stdw)
+  best_model <- sil_scores_stdw
+}
+
+
+# Create a dataframe for visualization
+sil_df <- tibble(clusters = 1:n_clusters, silhouette = best_model)
+
+# Plot silhouette scores
+sil_plot <- ggplot(sil_df, aes(x = clusters, y = silhouette, group = 1)) +
+  geom_point(size = 4, color = "blue") +
+  geom_line(color = "blue") +
+  xlab("Number of Clusters (k)") +
+  ylab("Average Silhouette Score") +
+  scale_x_continuous(breaks = seq(1, n_clusters, by = 1)) +
+  ggtitle("Silhouette Scores for Different k") +
+  theme_minimal()
+
+print(sil_plot)
+
+# Print optimal k
+print(paste("Optimal number of clusters:", k_star))
+
+
+########################################
+## The best model is the means from tsclust
+
+tsclust_res <- tsclust(inflation_dyn[,-1], type = "partitional", k = k_star, 
+                       distance = "L2", centroid = "mean", seed = 123, parallel = TRUE)  # DTW-based clustering
+
+inflation$Cluster <- as.factor(tsclust_res@cluster)
+
+
 
 # data long format
-data_long_inflation_dyn <- melt(inflation_dyn, 
-                            id.vars = c("Variable", "Cluster_dyn"),  # Keep these columns fixed
+data_long_inflation <- melt(inflation, 
+                            id.vars = c("Variable", "Cluster"),  # Keep these columns fixed
                             variable.name = "Date",  # Column name for the time periods
                             value.name = "Value")  # Column name for observations
 
 
-grouped_inflation <- data_long_inflation_dyn %>%
-  group_by(Date, Cluster_dyn) %>%
+# Group using average
+grouped_inflation <- data_long_inflation %>%
+  group_by(Date, Cluster) %>%
   summarise(mean_value = mean(Value), .groups = "drop") %>%
-  pivot_wider(names_from = Cluster_dyn, values_from = mean_value, names_prefix = "Clus_inf_")
+  pivot_wider(names_from = Cluster, values_from = mean_value, names_prefix = "Clus_inf_")
+
+
+
+################################################################
+## SAVE DATA
+
+write.csv(grouped_monetary, "monetary_clustered.csv", row.names = FALSE)
+write.csv(grouped_inflation, "inflation_clustered.csv", row.names = FALSE)
+
+
+#################################################################
+## VISUALIZATIONS
+
+# Plot using the original clustering method
+ggplot(data_long, aes(x = Date, y = Value, group = Variable, color = as.factor(Cluster))) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~Cluster, scales = "free_y") +
+  theme_minimal() +
+  ggtitle("Time Series Clustering - Method 1")
+
+# Plot using the dynamic clustering method
+ggplot(data_long, aes(x = Date, y = Value, group = Variable, color = as.factor(Cluster_dyn))) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~Cluster_dyn, scales = "free_y") +
+  theme_minimal() +
+  ggtitle("Time Series Clustering - Method 2")
 
 
