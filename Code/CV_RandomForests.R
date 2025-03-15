@@ -17,6 +17,19 @@ setwd("~/Desktop/MACSS-Econ/Winter 2025/ECMA 31330/ECMA31330_MLProject")
 ## Read dataset
 data <- read.csv("1998_G7_US.csv")
 
+# Motivated by our K-means clustering of monetary policy, where EU countries 
+# ended up being clustered together, and by the fact that the EU Central Bank
+# was founded in June 1998, where they started making uniformed interest rate
+# decisions; we see a deviation in the first year or so of the foundation because
+# Italy's rates were much higher, so they gradually came down to the EU-level
+# and all their rates stayed consistent since then. So, we will average the
+# interest rates of Germany (DE), France (FR), and Italy (IT) and rename it EU.
+# This will really only have an effect on our first ~15-20 rows of data. 
+
+data <- data %>%
+  mutate(EU = rowMeans(select(., DE, FR, IT))) %>%
+  select(-c(DE, FR, IT))
+  
 ###### Random Forests ###### 
 # ref: https://cran.r-project.org/web/packages/randomForest/randomForest.pdf
 ############################################################################
@@ -39,6 +52,7 @@ hyper_grid <- expand.grid(
 ### TAKES AROUND 10 MINS TO RUN!! 
 for(i in seq_len(nrow(hyper_grid))) {
   # fit model for ith hyperparameter combination
+  set.seed(123)
   fit <- randomForest(formula= US ~ ., data = data, ntree = p * 10, 
                       mtry = hyper_grid$mtry[i], 
                       nodesize = hyper_grid$nodesize[i],
@@ -55,15 +69,16 @@ hyper_grid_all <- hyper_grid %>%
 
 head(hyper_grid_all, 10)
 #     mtry nodesize replace sampsize      rmse
-#1    50        3   FALSE      259    0.2039051
-#2    66        3   FALSE      259    0.2063256
-#3    50        5   FALSE      259    0.2065509
-#4    30        3   FALSE      259    0.2082388
-#5    80        3   FALSE      259    0.2095830
+#1    49        3   FALSE      259 0.2047037
+#2    65        3   FALSE      259 0.2051887
+#3    49        5   FALSE      259 0.2086128
+#4    79        3   FALSE      259 0.2089355
+#5    65        5   FALSE      259 0.2122589
 
+set.seed(123)
 rf_model <- randomForest(US ~ ., data = data, importance = TRUE,
                          ntree = p*10,
-                         mtry = 50,
+                         mtry = 49,
                          nodesize = 3,
                          replace = FALSE,
                          sampsize = 259,
@@ -95,6 +110,7 @@ hyper_grid_b4_08 <- expand.grid(
 ### TAKES AROUND 4 MINS TO RUN:
 for(i in seq_len(nrow(hyper_grid_b4_08))) {
   # fit model for ith hyperparameter combination
+  set.seed(123)
   fit <- randomForest(formula= US ~ ., data = datab4_08, ntree = p * 10, 
                       mtry = hyper_grid_b4_08$mtry[i], 
                       nodesize = hyper_grid_b4_08$nodesize[i],
@@ -110,15 +126,16 @@ hyper_grid_b4_08 <- hyper_grid_b4_08 %>%
 
 head(hyper_grid_b4_08, 10)
 #     mtry nodesize replace sampsize      rmse
-#1    80        3   FALSE       95    0.1948956
-#2    66        3   FALSE       95    0.1958852
-#3    66        5   FALSE       95    0.1959256
-#4    80        5   FALSE       95    0.1967450
-#5    50        3   FALSE       95    0.1973288
+#1    65        3   FALSE       95 0.1952897
+#2    79        5   FALSE       95 0.1972430
+#3    79        3   FALSE       95 0.1973314
+#4    65        5   FALSE       95 0.1978486
+#5    49        3   FALSE       95 0.2031262
 
+set.seed(123)
 RFmodel_b4_08 <- randomForest(US ~ ., data = datab4_08, importance = TRUE,
                               ntree = p*10,
-                              mtry = 80,
+                              mtry = 65,
                               nodesize = 3,
                               replace = FALSE,
                               sampsize = 95,
@@ -139,6 +156,7 @@ hyper_grid_after_08 <- expand.grid(
 ### TAKES AROUND 6 MINS TO RUN:
 for(i in seq_len(nrow(hyper_grid_after_08))) {
   # fit model for ith hyperparameter combination
+  set.seed(123)
   fit <- randomForest(formula= US ~ ., data = dataAfter08, ntree = p * 10, 
                       mtry = hyper_grid_after_08$mtry[i], 
                       nodesize = hyper_grid_after_08$nodesize[i],
@@ -154,16 +172,17 @@ hyper_grid_after_08 <- hyper_grid_after_08 %>%
 
 head(hyper_grid_after_08, 10)
 #     mtry nodesize replace sampsize      rmse
-#1    50        3   FALSE      117    0.1900644
-#2    80        3   FALSE      117    0.1900901
-#3    30        3   FALSE      117    0.1915321
-#4    66        3   FALSE      117    0.1931518
-#5    66        5   FALSE      117    0.1952007
+#1    29        5   FALSE      117 0.1937976
+#2    49        5   FALSE      117 0.1949063
+#3    49        3   FALSE      117 0.1950001
+#4    65        3   FALSE      117 0.1970330
+#5    79        5   FALSE      117 0.1971461
 
+set.seed(123)
 RFmodel_after_08 <- randomForest(US ~ ., data = dataAfter08, importance = TRUE,
                                  ntree = p*10,
-                                 mtry = 50,
-                                 nodesize = 3,
+                                 mtry = 29,
+                                 nodesize = 5,
                                  replace = FALSE,
                                  sampsize = 117,
                                  keep.forest = TRUE)
@@ -194,6 +213,7 @@ hyper_grid_b4_covid <- expand.grid(
 ### TAKES AROUND 5 MINS TO RUN:
 for(i in seq_len(nrow(hyper_grid_b4_covid))) {
   # fit model for ith hyperparameter combination
+  set.seed(123)
   fit <- randomForest(formula= US ~ ., data = datab4_covid, ntree = p * 10, 
                       mtry = hyper_grid_b4_covid$mtry[i], 
                       nodesize = hyper_grid_b4_covid$nodesize[i],
@@ -209,16 +229,17 @@ hyper_grid_b4_covid <- hyper_grid_b4_covid %>%
 
 head(hyper_grid_b4_covid, 10)
 #     mtry nodesize replace sampsize      rmse
-#1    66        3   FALSE      103 0.07039257
-#2    80        3   FALSE      103 0.07153476
-#3    66        5   FALSE      103 0.07340228
-#4    50        5   FALSE      103 0.07360984
-#5    80        5   FALSE      103 0.07386279
+#1    65        3   FALSE      103 0.07115987
+#2    79        3   FALSE      103 0.07125893
+#3    79        5   FALSE      103 0.07364892
+#4    49        5   FALSE      103 0.07387483
+#5    49        3   FALSE      103 0.07420892
 
+set.seed(123)
 RFmodel_b4_covid <- randomForest(US ~ .,
                                  data = datab4_covid, importance = TRUE,
                                  ntree = p*10,
-                                 mtry = 66,
+                                 mtry = 65,
                                  nodesize = 3,
                                  replace = FALSE,
                                  sampsize = 103,
@@ -239,6 +260,7 @@ hyper_grid_after_covid <- expand.grid(
 ### TAKES AROUND 2 MINS TO RUN:
 for(i in seq_len(nrow(hyper_grid_after_covid))) {
   # fit model for ith hyperparameter combination
+  set.seed(123)
   fit <- randomForest(formula= US ~ ., data = dataAfterCovid, ntree = p * 10, 
                       mtry = hyper_grid_after_covid$mtry[i], 
                       nodesize = hyper_grid_after_covid$nodesize[i],
@@ -255,16 +277,17 @@ hyper_grid_after_covid <- hyper_grid_after_covid %>%
 head(hyper_grid_after_covid, 10)
 #     mtry nodesize replace sampsize      rmse
 #mtry nodesize replace sampsize      rmse
-#1    30        5   FALSE       46 0.1693780
-#2    50        3   FALSE       46 0.1696800
-#3    80        3   FALSE       46 0.1768711
-#4    80        5   FALSE       46 0.1775708
-#5    66        5   FALSE       46 0.1807041
+#1    65        5   FALSE       46 0.1881848
+#2    65        3   FALSE       46 0.1896140
+#3    49        5   FALSE       46 0.1901565
+#4    79        5   FALSE       46 0.1964010
+#5    79        3   FALSE       46 0.2007996
 
+set.seed(123)
 RFmodel_after_covid <- randomForest(US ~ .,
                                     data = dataAfterCovid, importance = TRUE,
                                     ntree = p*10,
-                                    mtry = 30,
+                                    mtry = 65,
                                     nodesize = 5,
                                     replace = FALSE,
                                     sampsize = 46,
