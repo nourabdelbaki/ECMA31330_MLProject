@@ -14,6 +14,6 @@ In the [Code](https://github.com/nourabdelbaki/ECMA31330_MLProject/tree/main/Cod
 
 In the [Models](https://github.com/nourabdelbaki/ECMA31330_MLProject/tree/main/Models) Folder is the saved model objects from [CV_RandomForests.R](https://github.com/nourabdelbaki/ECMA31330_MLProject/blob/main/Code/CV_RandomForests.R); 1 for all of the data, 1 for pre-2008, 1 for post-2008, 1 for pre-covid, and 1 for post-covid. 
 
-In the [RawData](https://github.com/nourabdelbaki/ECMA31330_MLProject/tree/main/RawData) Folder is the set of all datasets as defined in section 4.1 of the paper.
+In the [RawData](https://github.com/nourabdelbaki/ECMA31330_MLProject/tree/main/RawData) Folder is the set of all datasets as defined in section 4.1 of the paper. The original links to the datasets can be found under [links_to_data.xlsx](https://github.com/nourabdelbaki/ECMA31330_MLProject/blob/main/links_to_data.xlsx) in the main folder. 
 
 In the [Visualizations](https://github.com/nourabdelbaki/ECMA31330_MLProject/tree/main/Visualizations) Folder is a saved image of all the visualization found in the final write-up. 
