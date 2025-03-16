@@ -116,78 +116,80 @@ stargazer(OLS_EU_covid)
 
 summary(OLS_JP_covid)
 stargazer(OLS_JP_covid)
-###############################################################
+###############################################################################
 ## EVALUATION USING PLACEBO TEST
-
+###############################################################################
 ## For 2008 crisis period
 set.seed(123)
-df_08$randomPlacebo <- sample(df_08$crisis)
 
-# We need to format the date for future use
-df_08 <- df_08 %>%
-  mutate(date = seq.Date(from = as.Date("1998-01-01"), by = "month", length.out = n()))
-
-df_08$ShiftCrisis <- ifelse(df_08$date < "2006-01-01",
+df_08$ShiftCrisis <- ifelse(df_08$date < "January 2006",
                             0, 1)
 
-second_stage_CA <- lm(beta_CA ~ crisis + Clus_inf_1 + Clus_inf_2
+CA_08_placebo <- lm(beta_CA ~ ShiftCrisis + Clus_inf_1 + Clus_inf_2
                       + rgdp + rgdp_growth + UNRATE + EXPINF1YR + lag_GB + EU +
                         JP + VIXCLS + WTISPLC + GSCPI, 
                       data = df_08)
 
-second_stage_GB <- lm(beta_GB ~ crisis + Clus_inf_1 + Clus_inf_2
+GB_08_placebo <- lm(beta_GB ~ ShiftCrisis + Clus_inf_1 + Clus_inf_2
                       + rgdp + rgdp_growth + UNRATE + EXPINF1YR + CA + EU +
                         JP + VIXCLS + WTISPLC + GSCPI, 
                       data = df_08)
 
-second_stage_EU <- lm(beta_EU ~ crisis + Clus_inf_1 + Clus_inf_2
+EU_08_placebo <- lm(beta_EU ~ ShiftCrisis + Clus_inf_1 + Clus_inf_2
                       + rgdp + rgdp_growth + UNRATE + EXPINF1YR + CA + lag_GB +
                         JP + VIXCLS + WTISPLC + GSCPI, 
                       data = df_08)
 
-second_stage_JP <- lm(beta_JP ~ crisis + Clus_inf_1 + Clus_inf_2
+JP_08_placebo <- lm(beta_JP ~ ShiftCrisis + Clus_inf_1 + Clus_inf_2
                       + rgdp + rgdp_growth + UNRATE + EXPINF1YR + CA + lag_GB +
                         EU + VIXCLS + WTISPLC + GSCPI, 
                       data = df_08)
 
-summary(second_stage_CA)
-summary(second_stage_GB)
-summary(second_stage_EU)
-summary(second_stage_JP)
+summary(CA_08_placebo)
+stargazer(CA_08_placebo)
 
+summary(GB_08_placebo)
+stargazer(GB_08_placebo)
+
+summary(EU_08_placebo)
+stargazer(EU_08_placebo)
+
+summary(JP_08_placebo)
+stargazer(JP_08_placebo)
 
 ## For COVID crisis period
-set.seed(123)
-df_covid$randomPlacebo <- sample(df_covid$crisis)
 
-# We need to format the date for future use
-df_covid <- df_covid %>%
-  mutate(date = seq.Date(from = as.Date("1998-01-01"), by = "month", length.out = n()))
-
-df_covid$ShiftCrisis <- ifelse(df_covid$date < "2010-01-01",
+df_covid$ShiftCrisis <- ifelse(df_covid$date < "January 2015",
                             0, 1)
 
-second_stage_CA_cov <- lm(beta_CA ~ crisis + Clus_inf_1 + Clus_inf_2
+CA_covid_placebo <- lm(beta_CA ~ ShiftCrisis + Clus_inf_1 + Clus_inf_2
                           + rgdp + rgdp_growth + UNRATE + EXPINF1YR + lag_GB + EU +
                             JP + VIXCLS + WTISPLC + GSCPI, 
                           data = df_covid)
 
-second_stage_GB_cov <- lm(beta_GB ~ crisis + Clus_inf_1 + Clus_inf_2
+GB_covid_placebo <- lm(beta_GB ~ ShiftCrisis + Clus_inf_1 + Clus_inf_2
                           + rgdp + rgdp_growth + UNRATE + EXPINF1YR + CA + EU +
                             JP + VIXCLS + WTISPLC + GSCPI, 
                           data = df_covid)
 
-second_stage_EU_cov <- lm(beta_EU ~ crisis + Clus_inf_1 + Clus_inf_2
+EU_covid_placebo <- lm(beta_EU ~ ShiftCrisis + Clus_inf_1 + Clus_inf_2
                           + rgdp + rgdp_growth + UNRATE + EXPINF1YR + CA + lag_GB +
                             JP + VIXCLS + WTISPLC + GSCPI, 
                           data = df_covid)
 
-second_stage_JP_cov <- lm(beta_JP ~ crisis + Clus_inf_1 + Clus_inf_2
+JP_covid_placebo <- lm(beta_JP ~ ShiftCrisis + Clus_inf_1 + Clus_inf_2
                           + rgdp + rgdp_growth + UNRATE + EXPINF1YR + CA + lag_GB +
                             EU + VIXCLS + WTISPLC + GSCPI, 
                           data = df_covid)
 
-summary(second_stage_CA_cov)
-summary(second_stage_GB_cov)
-summary(second_stage_EU_cov)
-summary(second_stage_JP_cov) 
+summary(CA_covid_placebo)
+stargazer(CA_covid_placebo)
+
+summary(GB_covid_placebo)
+stargazer(GB_covid_placebo)
+
+summary(EU_covid_placebo)
+stargazer(EU_covid_placebo)
+
+summary(JP_covid_placebo) 
+stargazer(JP_covid_placebo)
