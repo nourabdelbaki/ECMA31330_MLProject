@@ -389,7 +389,7 @@ datab4_covid$beta_CA <- partial_deriv_approx(RFmodel_b4_covid,
 datab4_covid$beta_GB <- partial_deriv_approx(RFmodel_b4_covid,
                                            data_pred_b4_covid, "lag_GB", 
                                            delta_value)
-datab4_covid$beta_FR <- partial_deriv_approx(RFmodel_b4_covid,
+datab4_covid$beta_EU <- partial_deriv_approx(RFmodel_b4_covid,
                                            data_pred_b4_covid, "EU", 
                                            delta_value)
 datab4_covid$beta_JP <- partial_deriv_approx(RFmodel_b4_covid,
@@ -426,7 +426,7 @@ dataAfterCovid$beta_CA <- partial_deriv_approx(RFmodel_after_covid,
 dataAfterCovid$beta_GB <- partial_deriv_approx(RFmodel_after_covid,
                                               data_pred_after_covid, 
                                               "lag_GB", delta_value)
-dataAfterCovid$beta_FR <- partial_deriv_approx(RFmodel_after_covid,
+dataAfterCovid$beta_EU <- partial_deriv_approx(RFmodel_after_covid,
                                               data_pred_after_covid,
                                               "EU", delta_value)
 dataAfterCovid$beta_JP <- partial_deriv_approx(RFmodel_after_covid,
